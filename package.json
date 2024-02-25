@@ -10,9 +10,10 @@
   },
   "dependencies": {
     "@zerodev/sdk": "5.1.6",
-    "@zerodev/modular-permission": "5.1.0-beta.0",
+    "@zerodev/modular-permission": "5.1.0-beta.1",
     "@zerodev/session-key": "5.1.1",
     "@zerodev/passkey-validator": "5.1.4",
+    "@zerodev/presets": "5.1.4",
     "immer": "10.0.3",
     "next": "14.1.0",
     "react": "18.2.0",
