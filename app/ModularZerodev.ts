@@ -5,7 +5,8 @@ import {
     Address,
     Chain,
     createPublicClient,
-    hashMessage, Hex,
+    hashMessage,
+    Hex,
     http,
     pad,
     type Transport,
@@ -31,8 +32,6 @@ const PAYMASTER_URL = `https://rpc.zerodev.app/api/v2/paymaster/${process.env.NE
 const PASSKEY_SERVER_URL = `https://passkeys.zerodev.app/api/v2/${process.env.NEXT_PUBLIC_ZERODEV_PROJECT_ID}`
 export const CHAIN = polygonMumbai
 
-const ENTRY_POINT_ADDRESS = "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789"
-const ACCOUNT_LOGIC_ADDRESS = "0x5FC0236D6c88a65beD32EECDC5D60a5CAb377717"
 const MOCK_REQUESTOR_ADDRESS = "0x67e0a05806A54f6C2162a91810BD50eFe28e0460"
 
 export class ModularZerodev<TChain extends Chain | undefined = Chain | undefined> {
@@ -250,8 +249,6 @@ export class ModularZerodev<TChain extends Chain | undefined = Chain | undefined
         )
 
         return createKernelAccount(publicClient, {
-            entryPoint: ENTRY_POINT_ADDRESS,
-            accountLogicAddress: ACCOUNT_LOGIC_ADDRESS,
             plugins: {
                 sudo: modularPermissionPlugin,
                 regular: sessionKeyModularPermissionPlugin,
@@ -277,8 +274,6 @@ export class ModularZerodev<TChain extends Chain | undefined = Chain | undefined
         )
 
         return createKernelAccount(publicClient, {
-            entryPoint: ENTRY_POINT_ADDRESS,
-            accountLogicAddress: ACCOUNT_LOGIC_ADDRESS,
             plugins: {
                 sudo: modularPermissionPlugin,
             },
@@ -297,7 +292,6 @@ export class ModularZerodev<TChain extends Chain | undefined = Chain | undefined
                 })
                 return zerodevPaymaster.sponsorUserOperation({
                     userOperation,
-                    entryPoint: ENTRY_POINT_ADDRESS,
                 })
             },
         })
