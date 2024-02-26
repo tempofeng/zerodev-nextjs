@@ -3,7 +3,7 @@ import { ModularZerodev } from "@/app/ModularZerodev"
 import { useSessionKeyStore } from "@/app/SessionKeyStore"
 import { useRef, useState } from "react"
 import { KernelSmartAccount } from "@zerodev/sdk"
-import { Address, Hex } from "viem"
+import { Hex } from "viem"
 
 export function EoaWalletWithSessionKey() {
     const [smartWalletAddress, setSmartWalletAddress] = useState<string>()
