@@ -5,7 +5,7 @@ import {
     Address,
     Chain,
     createPublicClient,
-    hashMessage,
+    hashMessage, Hex,
     http,
     pad,
     type Transport,
@@ -15,7 +15,7 @@ import {
 import { polygonMumbai } from "viem/chains"
 import { createPermissionValidator } from "@zerodev/modular-permission"
 import { toMerklePolicy, toSignaturePolicy, toSudoPolicy } from "@zerodev/modular-permission/policies"
-import { generatePrivateKey, privateKeyToAccount } from "viem/accounts"
+import { privateKeyToAccount } from "viem/accounts"
 import {
     createKernelAccount,
     createKernelAccountClient,
@@ -29,7 +29,7 @@ import { MockRequestorAbi } from "./abis/MockRequestorAbi"
 const BUNDLER_URL = `https://rpc.zerodev.app/api/v2/bundler/${process.env.NEXT_PUBLIC_ZERODEV_PROJECT_ID}`
 const PAYMASTER_URL = `https://rpc.zerodev.app/api/v2/paymaster/${process.env.NEXT_PUBLIC_ZERODEV_PROJECT_ID}`
 const PASSKEY_SERVER_URL = `https://passkeys.zerodev.app/api/v2/${process.env.NEXT_PUBLIC_ZERODEV_PROJECT_ID}`
-const CHAIN = polygonMumbai
+export const CHAIN = polygonMumbai
 
 const ENTRY_POINT_ADDRESS = "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789"
 const ACCOUNT_LOGIC_ADDRESS = "0x5FC0236D6c88a65beD32EECDC5D60a5CAb377717"
@@ -45,26 +45,37 @@ export class ModularZerodev<TChain extends Chain | undefined = Chain | undefined
         })
     }
 
-    async signInByPasskey(passkeyName: string, mode: WebAuthnMode) {
-        const sessionPrivateKey = generatePrivateKey()
-        const kernelAccount = await this.createPasskeyKernelAccount(passkeyName, mode, sessionPrivateKey)
+    async signInByPasskey(passkeyName: string, mode: WebAuthnMode, sessionPrivateKey?: Hex) {
+        let kernelAccount: KernelSmartAccount
+        if (sessionPrivateKey) {
+            kernelAccount = await this.createPasskeySessionKeyKernelAccount(passkeyName, mode, sessionPrivateKey)
+        } else {
+            kernelAccount = await this.createPasskeyKernelAccount(passkeyName, mode)
+        }
         console.log("kernelAccount", kernelAccount)
 
-        // TODO serializeSessionKeyAccount() doesn't work on modular account
-        // const serializedSessionKeyAccount = await serializeSessionKeyAccount(kernelAccount, sessionPrivateKey)
-        // this.sessionKeyStore.getState().update(passkeyName, serializedSessionKeyAccount)
+        if (sessionPrivateKey) {
+            // TODO serializeSessionKeyAccount() doesn't work on modular account
+            // const serializedSessionKeyAccount = await serializeSessionKeyAccount(kernelAccount, sessionPrivateKey)
+            // this.sessionKeyStore.getState().update(passkeyName, serializedSessionKeyAccount)
+        }
         return kernelAccount
     }
 
-    async signInByEoa(walletClient: WalletClient<Transport, TChain, Account>) {
-        const sessionPrivateKey = generatePrivateKey()
-        const smartAccountSigner = walletClientToSmartAccountSigner(walletClient)
-        const kernelAccount = await this.createEoaKernelAccount(walletClient, sessionPrivateKey)
+    async signInByEoa(walletClient: WalletClient<Transport, TChain, Account>, sessionPrivateKey?: Hex) {
+        let kernelAccount: KernelSmartAccount
+        if (sessionPrivateKey) {
+            kernelAccount = await this.createEoaSessionKeyKernelAccount(walletClient, sessionPrivateKey)
+        } else {
+            kernelAccount = await this.createEoaKernelAccount(walletClient)
+        }
         console.log("kernelAccount", kernelAccount)
 
-        // TODO serializeSessionKeyAccount() doesn't work on modular account
-        // const serializedSessionKeyAccount = await serializeSessionKeyAccount(kernelAccount, sessionPrivateKey)
-        // this.sessionKeyStore.getState().update(passkeyName, serializedSessionKeyAccount)
+        if (sessionPrivateKey) {
+            // TODO serializeSessionKeyAccount() doesn't work on modular account
+            // const serializedSessionKeyAccount = await serializeSessionKeyAccount(kernelAccount, sessionPrivateKey)
+            // this.sessionKeyStore.getState().update(passkeyName, serializedSessionKeyAccount)
+        }
         return kernelAccount
     }
 
@@ -107,22 +118,33 @@ export class ModularZerodev<TChain extends Chain | undefined = Chain | undefined
             ],
         })
         console.log("Signature verified response: ", response)
+        return response
     }
 
-    async createEoaKernelAccount(walletClient: WalletClient<Transport, TChain, Account>, sessionPrivateKey: Address) {
+    async createEoaSessionKeyKernelAccount(walletClient: WalletClient<Transport, TChain, Account>, sessionPrivateKey: Address) {
+        const start = Date.now()
+
         const publicClient = this.getPublicClient()
-        const smartAccountSigner = walletClientToSmartAccountSigner(walletClient)
-        // TODO signer type mismatch
+        const eoaSigner = walletClientToSmartAccountSigner(walletClient)
+        const eoaEcdsaSigner = toECDSASigner({ signer: eoaSigner })
+
+        console.log("create eoaEcdsaSigner", Date.now() - start)
+
         const modularPermissionPlugin = await createPermissionValidator(
             publicClient,
             {
-                signer: smartAccountSigner,
+                signer: eoaEcdsaSigner,
                 policies: [await toSudoPolicy({})],
             },
         )
 
+        console.log("create modularPermissionPlugin", Date.now() - start)
+
         const sessionKeyAccount = privateKeyToAccount(sessionPrivateKey)
         const sessionKeySigner = toECDSASigner({ signer: sessionKeyAccount })
+
+        console.log("create sessionKeySigner", Date.now() - start)
+
         const sessionKeyModularPermissionPlugin = await createPermissionValidator(
             publicClient,
             {
@@ -144,17 +166,51 @@ export class ModularZerodev<TChain extends Chain | undefined = Chain | undefined
             },
         )
 
-        return createKernelAccount(publicClient, {
-            entryPoint: ENTRY_POINT_ADDRESS,
-            accountLogicAddress: ACCOUNT_LOGIC_ADDRESS,
+        console.log("create sessionKeyModularPermissionPlugin", Date.now() - start)
+
+        const kernelAccount = await createKernelAccount(publicClient, {
             plugins: {
                 sudo: modularPermissionPlugin,
                 regular: sessionKeyModularPermissionPlugin,
             },
         })
+
+        console.log("create kernelAccount", Date.now() - start)
+
+        return kernelAccount
     }
 
-    async createPasskeyKernelAccount(passkeyName: string, mode: WebAuthnMode, sessionPrivateKey: Address) {
+    async createEoaKernelAccount(walletClient: WalletClient<Transport, TChain, Account>) {
+        const start = Date.now()
+
+        const publicClient = this.getPublicClient()
+        const eoaSigner = walletClientToSmartAccountSigner(walletClient)
+        const eoaEcdsaSigner = toECDSASigner({ signer: eoaSigner })
+
+        console.log("create eoaEcdsaSigner", Date.now() - start)
+
+        const modularPermissionPlugin = await createPermissionValidator(
+            publicClient,
+            {
+                signer: eoaEcdsaSigner,
+                policies: [await toSudoPolicy({})],
+            },
+        )
+
+        console.log("create modularPermissionPlugin", Date.now() - start)
+
+        const kernelAccount = await createKernelAccount(publicClient, {
+            plugins: {
+                sudo: modularPermissionPlugin,
+            },
+        })
+
+        console.log("create kernelAccount", Date.now() - start)
+
+        return kernelAccount
+    }
+
+    async createPasskeySessionKeyKernelAccount(passkeyName: string, mode: WebAuthnMode, sessionPrivateKey: Address) {
         const publicClient = this.getPublicClient()
 
         const webAuthnModularSigner = await toWebAuthnSigner(publicClient, {
@@ -201,7 +257,32 @@ export class ModularZerodev<TChain extends Chain | undefined = Chain | undefined
                 regular: sessionKeyModularPermissionPlugin,
             },
         })
+    }
 
+
+    async createPasskeyKernelAccount(passkeyName: string, mode: WebAuthnMode) {
+        const publicClient = this.getPublicClient()
+
+        const webAuthnModularSigner = await toWebAuthnSigner(publicClient, {
+            passkeyName,
+            passkeyServerUrl: PASSKEY_SERVER_URL,
+            mode,
+        })
+        const modularPermissionPlugin = await createPermissionValidator(
+            publicClient,
+            {
+                signer: webAuthnModularSigner,
+                policies: [await toSudoPolicy({})],
+            },
+        )
+
+        return createKernelAccount(publicClient, {
+            entryPoint: ENTRY_POINT_ADDRESS,
+            accountLogicAddress: ACCOUNT_LOGIC_ADDRESS,
+            plugins: {
+                sudo: modularPermissionPlugin,
+            },
+        })
     }
 
     createKernelClient(chain: Chain, kernelAccount: KernelSmartAccount) {
