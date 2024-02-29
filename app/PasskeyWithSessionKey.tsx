@@ -1,8 +1,7 @@
-import { useRef, useState } from "react"
+import { useState } from "react"
 import { useSessionKeyStore } from "@/app/SessionKeyStore"
 import { ModularZerodev } from "@/app/ModularZerodev"
 import { WebAuthnMode } from "@zerodev/modular-permission/signers"
-import { KernelSmartAccount } from "@zerodev/sdk"
 import { Hex } from "viem"
 
 export function PasskeyWithSessionKey() {
@@ -11,32 +10,28 @@ export function PasskeyWithSessionKey() {
     const { serializedSessionKeyAccount } = useSessionKeyStore()
     const [smartWalletAddress, setSmartWalletAddress] = useState<string>()
     const [message, setMessage] = useState<string>()
-    const kernelAccount = useRef<KernelSmartAccount>()
 
     async function register() {
         setMessage(undefined)
         const modularZerodev = new ModularZerodev(useSessionKeyStore)
-        kernelAccount.current = await modularZerodev.signInByPasskey(email, WebAuthnMode.Register, sessionPrivateKey)
-        setSmartWalletAddress(kernelAccount.current.address)
+        const kernelAccount = await modularZerodev.signInByPasskey(email, WebAuthnMode.Register, sessionPrivateKey)
+        setSmartWalletAddress(kernelAccount.address)
         setMessage("kernel account created")
     }
 
     async function login() {
         setMessage(undefined)
         const modularZerodev = new ModularZerodev(useSessionKeyStore)
-        kernelAccount.current = await modularZerodev.signInByPasskey(email, WebAuthnMode.Login, sessionPrivateKey)
-        setSmartWalletAddress(kernelAccount.current.address)
+        const kernelAccount = await modularZerodev.signInByPasskey(email, WebAuthnMode.Login, sessionPrivateKey)
+        setSmartWalletAddress(kernelAccount.address)
         setMessage("kernel account created")
     }
 
     async function sendUserOp() {
-        if (!kernelAccount.current) {
-            return
-        }
         try {
             setMessage(undefined)
             const modularZerodev = new ModularZerodev(useSessionKeyStore)
-            await modularZerodev.sendUserOp(kernelAccount.current)
+            await modularZerodev.sendUserOpBySessionKey()
             setMessage("user op sent")
         } catch (e: any) {
             console.error(e)
@@ -45,14 +40,15 @@ export function PasskeyWithSessionKey() {
     }
 
     async function signAndVerify() {
-        if (!kernelAccount.current) {
-            return
-        }
         try {
             setMessage(undefined)
             const modularZerodev = new ModularZerodev(useSessionKeyStore)
-            const sig = await modularZerodev.signMessage(kernelAccount.current, "Hello, world!")
-            const isValid = await modularZerodev.verifySignature(kernelAccount.current, "Hello, world!", sig)
+            const sig = await modularZerodev.signMessage("Hello, world!")
+            console.log("sig", sig)
+            if (!sig) {
+                return
+            }
+            const isValid = await modularZerodev.verifySignature("Hello, world!", sig)
             setMessage(`isValid:${isValid}`)
         } catch (e: any) {
             console.error(e)
@@ -83,7 +79,7 @@ export function PasskeyWithSessionKey() {
                         onChange={(e) => setEmail(e.target.value)}
                     />
                     <p>AA: {smartWalletAddress}</p>
-                    <p>SerializedSessionKeyAccount: {serializedSessionKeyAccount}</p>
+                    <p>SerializedSessionKeyAccount: {`${serializedSessionKeyAccount?.substring(0, 24)}...`}</p>
                     <p>Message: {message}</p>
                 </div>
                 <button

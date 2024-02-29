@@ -1,15 +1,13 @@
 import { useWalletClient } from "wagmi"
 import { ModularZerodev } from "@/app/ModularZerodev"
 import { useSessionKeyStore } from "@/app/SessionKeyStore"
-import { useRef, useState } from "react"
-import { KernelSmartAccount } from "@zerodev/sdk"
+import { useState } from "react"
 import { Hex } from "viem"
 
 export function EoaWalletWithSessionKey() {
     const [smartWalletAddress, setSmartWalletAddress] = useState<string>()
     const [sessionPrivateKey, setSessionPrivateKey] = useState<Hex>(process.env.NEXT_PUBLIC_DEFAULT_SESSION_PRIVATE_KEY! as Hex)
     const [message, setMessage] = useState<string>()
-    const kernelAccount = useRef<KernelSmartAccount>()
     const { data: signer } = useWalletClient()
     const { serializedSessionKeyAccount } = useSessionKeyStore()
 
@@ -19,19 +17,16 @@ export function EoaWalletWithSessionKey() {
         }
         setMessage(undefined)
         const modularZerodev = new ModularZerodev(useSessionKeyStore)
-        kernelAccount.current = await modularZerodev.signInByEoa(signer, sessionPrivateKey)
-        setSmartWalletAddress(kernelAccount.current.address)
+        const kernelAccount = await modularZerodev.signInByEoa(signer, sessionPrivateKey)
+        setSmartWalletAddress(kernelAccount.address)
         setMessage("kernel account created")
     }
 
     async function sendUserOp() {
-        if (!kernelAccount.current) {
-            return
-        }
         try {
             setMessage(undefined)
             const modularZerodev = new ModularZerodev(useSessionKeyStore)
-            await modularZerodev.sendUserOp(kernelAccount.current)
+            await modularZerodev.sendUserOpBySessionKey()
             setMessage("user op sent")
         } catch (e: any) {
             console.error(e)
@@ -40,16 +35,19 @@ export function EoaWalletWithSessionKey() {
     }
 
     async function signAndVerify() {
-        if (!kernelAccount.current) {
-            return
-        }
+        console.log("signAndVerify")
         try {
             setMessage(undefined)
             const modularZerodev = new ModularZerodev(useSessionKeyStore)
-            const sig = await modularZerodev.signMessage(kernelAccount.current, "Hello, world!")
-            const isValid = await modularZerodev.verifySignature(kernelAccount.current, "Hello, world!", sig)
+            const sig = await modularZerodev.signMessage("Hello, world!")
+            console.log("sig", sig)
+            if (!sig) {
+                return
+            }
+            const isValid = await modularZerodev.verifySignature("Hello, world!", sig)
             setMessage(`isValid:${isValid}`)
         } catch (e: any) {
+            console.error(e)
             setMessage(e.details)
         }
     }

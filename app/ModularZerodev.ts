@@ -14,7 +14,11 @@ import {
     zeroAddress,
 } from "viem"
 import { polygonMumbai } from "viem/chains"
-import { createPermissionValidator } from "@zerodev/modular-permission"
+import {
+    createPermissionValidator,
+    deserializeModularPermissionAccount,
+    serializeModularPermissionAccount,
+} from "@zerodev/modular-permission"
 import { toMerklePolicy, toSignaturePolicy, toSudoPolicy } from "@zerodev/modular-permission/policies"
 import { privateKeyToAccount } from "viem/accounts"
 import {
@@ -54,9 +58,11 @@ export class ModularZerodev<TChain extends Chain | undefined = Chain | undefined
         console.log("kernelAccount", kernelAccount)
 
         if (sessionPrivateKey) {
-            // TODO serializeSessionKeyAccount() doesn't work on modular account
-            // const serializedSessionKeyAccount = await serializeSessionKeyAccount(kernelAccount, sessionPrivateKey)
-            // this.sessionKeyStore.getState().update(passkeyName, serializedSessionKeyAccount)
+            const serializedSessionKeyAccount = await serializeModularPermissionAccount(
+                kernelAccount,
+                sessionPrivateKey,
+            )
+            this.sessionKeyStore.getState().setSerializedSessionKeyAccount(serializedSessionKeyAccount)
         }
         return kernelAccount
     }
@@ -71,14 +77,22 @@ export class ModularZerodev<TChain extends Chain | undefined = Chain | undefined
         console.log("kernelAccount", kernelAccount)
 
         if (sessionPrivateKey) {
-            // TODO serializeSessionKeyAccount() doesn't work on modular account
-            // const serializedSessionKeyAccount = await serializeSessionKeyAccount(kernelAccount, sessionPrivateKey)
-            // this.sessionKeyStore.getState().update(passkeyName, serializedSessionKeyAccount)
+            const serializedSessionKeyAccount = await serializeModularPermissionAccount(
+                kernelAccount,
+                sessionPrivateKey,
+            )
+            this.sessionKeyStore.getState().setSerializedSessionKeyAccount(serializedSessionKeyAccount)
         }
         return kernelAccount
     }
 
-    async signMessage(kernelAccount: KernelSmartAccount, message: string) {
+    async signMessage(message: string) {
+        const serializedSessionKeyAccount = this.sessionKeyStore.getState().serializedSessionKeyAccount
+        if (!serializedSessionKeyAccount) {
+            return undefined
+        }
+
+        const kernelAccount = await deserializeModularPermissionAccount(this.getPublicClient(), serializedSessionKeyAccount)
         const kernelClient = this.createKernelClient(CHAIN, kernelAccount)
         const sig = await kernelClient.signMessage({
             message,
@@ -101,7 +115,33 @@ export class ModularZerodev<TChain extends Chain | undefined = Chain | undefined
         console.log("sendUserOp", userOpHash)
     }
 
-    async verifySignature(kernelAccount: KernelSmartAccount, message: string, signature: string) {
+    async sendUserOpBySessionKey() {
+        const serializedSessionKeyAccount = this.sessionKeyStore.getState().serializedSessionKeyAccount
+        if (!serializedSessionKeyAccount) {
+            return
+        }
+
+        const kernelAccount = await deserializeModularPermissionAccount(this.getPublicClient(), serializedSessionKeyAccount)
+        const kernelClient = this.createKernelClient(CHAIN, kernelAccount)
+        const userOpHash = await kernelClient.sendUserOperation({
+            userOperation: {
+                callData: await kernelClient.account.encodeCallData({
+                    to: zeroAddress,
+                    value: 0n,
+                    data: pad("0x", { size: 4 }),
+                }),
+            },
+        })
+        console.log("sendUserOp", userOpHash)
+    }
+
+    async verifySignature(message: string, signature: string) {
+        const serializedSessionKeyAccount = this.sessionKeyStore.getState().serializedSessionKeyAccount
+        if (!serializedSessionKeyAccount) {
+            return
+        }
+
+        const kernelAccount = await deserializeModularPermissionAccount(this.getPublicClient(), serializedSessionKeyAccount)
         const kernelClient = this.createKernelClient(CHAIN, kernelAccount)
         const response = await getAction(
             kernelClient.account.client,

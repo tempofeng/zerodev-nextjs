@@ -2,12 +2,10 @@ import { create, StateCreator } from "zustand"
 import { devtools } from "zustand/middleware"
 import { immer } from "zustand/middleware/immer"
 
-
 export interface SessionKeyState {
-    email?: string
     serializedSessionKeyAccount?: string
 
-    update: (email: string, serializedSessionKeyAccount: string) => void
+    setSerializedSessionKeyAccount: (serializedSessionKeyAccount: string) => void
 }
 
 export const initialSessionKeyState = {}
@@ -19,9 +17,8 @@ const createSessionKeyStore: StateCreator<
     SessionKeyState
 > = set => ({
     ...initialSessionKeyState,
-    update: (email, serializedSessionKeyAccount) => {
+    setSerializedSessionKeyAccount: (serializedSessionKeyAccount) => {
         set(state => {
-            state.email = email
             state.serializedSessionKeyAccount = serializedSessionKeyAccount
         })
     },
