@@ -67,7 +67,7 @@ export function EoaWalletWithSessionKey() {
                         onChange={(e) => setSessionPrivateKey(e.target.value as Hex)}
                     />
                     <p>AA: {smartWalletAddress}</p>
-                    <p>SerializedSessionKeyAccount: {serializedSessionKeyAccount}</p>
+                    <p>SerializedSessionKeyAccount: {`${serializedSessionKeyAccount?.substring(0, 24)}...`}</p>
                     <p>Message: {message}</p>
                 </div>
                 <button

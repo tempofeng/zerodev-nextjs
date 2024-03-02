@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@zerodev/sdk": "5.1.7",
-    "@zerodev/modular-permission": "5.1.0-beta.9",
+    "@zerodev/modular-permission": "5.1.0-beta.13",
     "@zerodev/session-key": "5.1.1",
     "@zerodev/passkey-validator": "5.1.7",
     "@zerodev/presets": "5.1.4",
