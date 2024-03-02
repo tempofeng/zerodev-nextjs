@@ -1,6 +1,6 @@
 import { useWalletClient } from "wagmi"
 import { ModularZerodev } from "@/app/ModularZerodev"
-import { useSessionKeyStore } from "@/app/SessionKeyStore"
+import { useSessionKeyStore } from "@/app/sessionKeyStore"
 import { useRef, useState } from "react"
 import { KernelSmartAccount } from "@zerodev/sdk"
 

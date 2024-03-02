@@ -1,5 +1,5 @@
 import { useRef, useState } from "react"
-import { useSessionKeyStore } from "@/app/SessionKeyStore"
+import { useSessionKeyStore } from "@/app/sessionKeyStore"
 import { ModularZerodev } from "@/app/ModularZerodev"
 import { WebAuthnMode } from "@zerodev/modular-permission/signers"
 import { KernelSmartAccount } from "@zerodev/sdk"

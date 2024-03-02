@@ -1,6 +1,6 @@
 import { useWalletClient } from "wagmi"
 import { ModularZerodev } from "@/app/ModularZerodev"
-import { useSessionKeyStore } from "@/app/SessionKeyStore"
+import { useSessionKeyStore } from "@/app/sessionKeyStore"
 import { useState } from "react"
 import { Hex } from "viem"
 

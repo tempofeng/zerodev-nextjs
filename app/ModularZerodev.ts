@@ -1,4 +1,4 @@
-import { SessionKeyStore } from "@/app/SessionKeyStore"
+import { SessionKeyStore } from "@/app/sessionKeyStore"
 import { toECDSASigner, toWebAuthnSigner, WebAuthnMode } from "@zerodev/modular-permission/signers"
 import {
     type Account,

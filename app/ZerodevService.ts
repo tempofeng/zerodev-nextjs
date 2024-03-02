@@ -8,7 +8,7 @@ import {
     createZeroDevPaymasterClient,
     KernelSmartAccount,
 } from "@zerodev/sdk"
-import { SessionKeyStore } from "@/app/SessionKeyStore"
+import { SessionKeyStore } from "@/app/sessionKeyStore"
 import { polygonMumbai } from "viem/chains"
 
 const BUNDLER_URL = `https://rpc.zerodev.app/api/v2/bundler/${process.env.NEXT_PUBLIC_ZERODEV_PROJECT_ID}`
