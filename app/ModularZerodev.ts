@@ -8,12 +8,10 @@ import {
     hashMessage,
     Hex,
     http,
-    pad,
     type Transport,
     WalletClient,
-    zeroAddress,
 } from "viem"
-import { polygonMumbai } from "viem/chains"
+import { optimism } from "viem/chains"
 import {
     createPermissionValidator,
     deserializeModularPermissionAccount,
@@ -27,16 +25,23 @@ import {
     createZeroDevPaymasterClient,
     KernelSmartAccount,
 } from "@zerodev/sdk"
-import { getAction, walletClientToSmartAccountSigner } from "permissionless"
+import { bundlerActions, getAction, walletClientToSmartAccountSigner } from "permissionless"
 import { readContract } from "viem/actions"
 import { MockRequestorAbi } from "./abis/MockRequestorAbi"
+import { erc20Abi, Erc20Proxy } from "@/app/Erc20Proxy"
+import Big from "big.js"
+import { vaultAbi } from "@/app/VaultProxy"
 
 const BUNDLER_URL = `https://rpc.zerodev.app/api/v2/bundler/${process.env.NEXT_PUBLIC_ZERODEV_PROJECT_ID}?bundlerProvider=PIMLICO`
 const PAYMASTER_URL = `https://rpc.zerodev.app/api/v2/paymaster/${process.env.NEXT_PUBLIC_ZERODEV_PROJECT_ID}?paymasterProvider=PIMLICO`
 const PASSKEY_SERVER_URL = `https://passkeys.zerodev.app/api/v2/${process.env.NEXT_PUBLIC_ZERODEV_PROJECT_ID}`
-export const CHAIN = polygonMumbai
+export const CHAIN = optimism
 
 const MOCK_REQUESTOR_ADDRESS = "0x67e0a05806A54f6C2162a91810BD50eFe28e0460"
+const USDT_CONTRACT_ADDRESS = "0x94b008aA00579c1307B0EF2c499aD98a8ce58e58"
+const USDT_DECIMALS = 6
+
+const VAULT_ADDRESS = "0x5aa45D0349c54D5BD241Dc6ece7b42601179ec59"
 
 export class ModularZerodev<TChain extends Chain | undefined = Chain | undefined> {
     constructor(private readonly sessionKeyStore: SessionKeyStore) {
@@ -103,16 +108,15 @@ export class ModularZerodev<TChain extends Chain | undefined = Chain | undefined
 
     async sendUserOp(kernelAccount: KernelSmartAccount) {
         const kernelClient = this.createKernelClient(CHAIN, kernelAccount)
+        const erc20Proxy = new Erc20Proxy(USDT_CONTRACT_ADDRESS, USDT_DECIMALS)
+        const callData = await kernelClient.account.encodeCallData(erc20Proxy.getApproveCallData(VAULT_ADDRESS, Big(10)))
         const userOpHash = await kernelClient.sendUserOperation({
             userOperation: {
-                callData: await kernelClient.account.encodeCallData({
-                    to: zeroAddress,
-                    value: 0n,
-                    data: pad("0x", { size: 4 }),
-                }),
+                callData,
             },
         })
-        console.log("sendUserOp", userOpHash)
+        const receipt = await kernelClient.extend(bundlerActions).waitForUserOperationReceipt({ hash: userOpHash })
+        console.log("sendUserOpBySessionKey", userOpHash, receipt.receipt.transactionHash)
     }
 
     async sendUserOpBySessionKey() {
@@ -123,16 +127,15 @@ export class ModularZerodev<TChain extends Chain | undefined = Chain | undefined
 
         const kernelAccount = await deserializeModularPermissionAccount(this.getPublicClient(), serializedSessionKeyAccount)
         const kernelClient = this.createKernelClient(CHAIN, kernelAccount)
+        const erc20Proxy = new Erc20Proxy(USDT_CONTRACT_ADDRESS, USDT_DECIMALS)
+        const callData = await kernelClient.account.encodeCallData(erc20Proxy.getApproveCallData(VAULT_ADDRESS, Big(10)))
         const userOpHash = await kernelClient.sendUserOperation({
             userOperation: {
-                callData: await kernelClient.account.encodeCallData({
-                    to: zeroAddress,
-                    value: 0n,
-                    data: pad("0x", { size: 4 }),
-                }),
+                callData,
             },
         })
-        console.log("sendUserOp", userOpHash)
+        const receipt = await kernelClient.extend(bundlerActions).waitForUserOperationReceipt({ hash: userOpHash })
+        console.log("sendUserOpBySessionKey", userOpHash, receipt.receipt.transactionHash)
     }
 
     async verifySignature(message: string, signature: string) {
@@ -192,8 +195,19 @@ export class ModularZerodev<TChain extends Chain | undefined = Chain | undefined
                     await toMerklePolicy({
                         permissions: [
                             {
-                                target: zeroAddress,
+                                target: USDT_CONTRACT_ADDRESS,
+                                valueLimit: BigInt(0),
+                                abi: erc20Abi,
+                                functionName: "approve",
+                                args: [null, null],
                             },
+                            // {
+                            //     target: VAULT_ADDRESS,
+                            //     valueLimit: BigInt(0),
+                            //     abi: vaultAbi,
+                            //     functionName: "deposit",
+                            //     args: [null, null],
+                            // },
                         ],
                     }),
                     await toSignaturePolicy({
@@ -275,7 +289,11 @@ export class ModularZerodev<TChain extends Chain | undefined = Chain | undefined
                     await toMerklePolicy({
                         permissions: [
                             {
-                                target: zeroAddress,
+                                target: USDT_CONTRACT_ADDRESS,
+                                valueLimit: BigInt(0),
+                                abi: erc20Abi,
+                                functionName: "approve",
+                                args: [null, null],
                             },
                         ],
                     }),
