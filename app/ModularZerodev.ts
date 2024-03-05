@@ -30,18 +30,24 @@ import { readContract } from "viem/actions"
 import { MockRequestorAbi } from "./abis/MockRequestorAbi"
 import { erc20Abi, Erc20Proxy } from "@/app/Erc20Proxy"
 import Big from "big.js"
-import { vaultABI } from "@/app/VaultProxy"
+import { clearingHouseABI, vaultABI } from "@/app/types/wagmi/generated"
+import { VaultProxy } from "@/app/VaultProxy"
+import { ClearingHouseProxy } from "@/app/ClearingHouseProxy"
 
 const BUNDLER_URL = `https://rpc.zerodev.app/api/v2/bundler/${process.env.NEXT_PUBLIC_ZERODEV_PROJECT_ID}?bundlerProvider=PIMLICO`
 const PAYMASTER_URL = `https://rpc.zerodev.app/api/v2/paymaster/${process.env.NEXT_PUBLIC_ZERODEV_PROJECT_ID}?paymasterProvider=PIMLICO`
 const PASSKEY_SERVER_URL = `https://passkeys.zerodev.app/api/v2/${process.env.NEXT_PUBLIC_ZERODEV_PROJECT_ID}`
 export const CHAIN = optimism
 
-const MOCK_REQUESTOR_ADDRESS = "0x67e0a05806A54f6C2162a91810BD50eFe28e0460"
-const USDT_CONTRACT_ADDRESS = "0x94b008aA00579c1307B0EF2c499aD98a8ce58e58"
-const USDT_DECIMALS = 6
+export const MOCK_REQUESTOR_ADDRESS = "0x67e0a05806A54f6C2162a91810BD50eFe28e0460" as Address
+export const USDT_CONTRACT_ADDRESS = "0x94b008aA00579c1307B0EF2c499aD98a8ce58e58" as Address
+export const USDT_DECIMALS = 6
 
-const VAULT_ADDRESS = "0x5aa45D0349c54D5BD241Dc6ece7b42601179ec59"
+export const VAULT_ADDRESS = "0x5aa45D0349c54D5BD241Dc6ece7b42601179ec59" as Address
+
+export const CLEARING_HOUSE_ADDRESS = "0x4570e98cEF4b602B7A66f51CD6A51E2281075a46" as Address
+
+export const ORDER_GATEWAY_V2_ADDRESS = "0x186841f8c1B9514D7B627A691b7d15831A17553B" as Address
 
 export class ModularZerodev<TChain extends Chain | undefined = Chain | undefined> {
     constructor(private readonly sessionKeyStore: SessionKeyStore) {
@@ -128,7 +134,14 @@ export class ModularZerodev<TChain extends Chain | undefined = Chain | undefined
         const kernelAccount = await deserializeModularPermissionAccount(this.getPublicClient(), serializedSessionKeyAccount)
         const kernelClient = this.createKernelClient(CHAIN, kernelAccount)
         const erc20Proxy = new Erc20Proxy(USDT_CONTRACT_ADDRESS, USDT_DECIMALS)
-        const callData = await kernelClient.account.encodeCallData(erc20Proxy.getApproveCallData(VAULT_ADDRESS, Big(10)))
+        const vaultProxy = new VaultProxy()
+        const clearingHouseProxy = new ClearingHouseProxy()
+        const callData = await kernelClient.account.encodeCallData([
+            erc20Proxy.getApproveCallData(VAULT_ADDRESS, Big(10)),
+            // vaultProxy.getDepositCallData(kernelAccount.address, Big(10)),
+            // vaultProxy.getSetAuthorizationCallData(ORDER_GATEWAY_V2_ADDRESS, true),
+            // clearingHouseProxy.getSetAuthorizationCallData(ORDER_GATEWAY_V2_ADDRESS, true),
+        ])
         const userOpHash = await kernelClient.sendUserOperation({
             userOperation: {
                 callData,
@@ -297,7 +310,35 @@ export class ModularZerodev<TChain extends Chain | undefined = Chain | undefined
                                 functionName: "approve",
                                 args: [null, null],
                             },
+                            {
+                                target: VAULT_ADDRESS,
+                                valueLimit: BigInt(0),
+                                // @ts-ignore
+                                abi: vaultABI,
+                                // @ts-ignore
+                                functionName: "deposit",
+                                args: [null, null],
+                            },
+                            {
+                                target: VAULT_ADDRESS,
+                                valueLimit: BigInt(0),
+                                // @ts-ignore
+                                abi: vaultABI,
+                                // @ts-ignore
+                                functionName: "setAuthorization",
+                                args: [null, null],
+                            },
+                            {
+                                target: CLEARING_HOUSE_ADDRESS,
+                                valueLimit: BigInt(0),
+                                // @ts-ignore
+                                abi: clearingHouseABI,
+                                // @ts-ignore
+                                functionName: "setAuthorization",
+                                args: [null, null],
+                            },
                         ],
+
                     }),
                     await toSignaturePolicy({
                         allowedRequestors: [
