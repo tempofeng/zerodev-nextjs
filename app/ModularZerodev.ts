@@ -30,7 +30,7 @@ import { readContract } from "viem/actions"
 import { MockRequestorAbi } from "./abis/MockRequestorAbi"
 import { erc20Abi, Erc20Proxy } from "@/app/Erc20Proxy"
 import Big from "big.js"
-import { vaultAbi } from "@/app/VaultProxy"
+import { vaultABI } from "@/app/VaultProxy"
 
 const BUNDLER_URL = `https://rpc.zerodev.app/api/v2/bundler/${process.env.NEXT_PUBLIC_ZERODEV_PROJECT_ID}?bundlerProvider=PIMLICO`
 const PAYMASTER_URL = `https://rpc.zerodev.app/api/v2/paymaster/${process.env.NEXT_PUBLIC_ZERODEV_PROJECT_ID}?paymasterProvider=PIMLICO`
@@ -195,19 +195,21 @@ export class ModularZerodev<TChain extends Chain | undefined = Chain | undefined
                     await toMerklePolicy({
                         permissions: [
                             {
+                                target: VAULT_ADDRESS,
+                                valueLimit: BigInt(0),
+                                abi: vaultABI,
+                                functionName: "deposit",
+                                args: [null, null],
+                            },
+                            {
                                 target: USDT_CONTRACT_ADDRESS,
                                 valueLimit: BigInt(0),
+                                // @ts-ignore
                                 abi: erc20Abi,
+                                // @ts-ignore
                                 functionName: "approve",
                                 args: [null, null],
                             },
-                            // {
-                            //     target: VAULT_ADDRESS,
-                            //     valueLimit: BigInt(0),
-                            //     abi: vaultAbi,
-                            //     functionName: "deposit",
-                            //     args: [null, null],
-                            // },
                         ],
                     }),
                     await toSignaturePolicy({
